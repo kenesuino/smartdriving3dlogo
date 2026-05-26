@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const SVG3D = ({ svg, smoothness = 0.5, color = '#4f46e5' }: { svg: string; smoothness?: number; color?: string }) => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -28,10 +27,38 @@ const SVG3D = ({ svg, smoothness = 0.5, color = '#4f46e5' }: { svg: string; smoo
     mountRef.current.innerHTML = '';
     mountRef.current.appendChild(renderer.domElement);
 
-    // --- Controls ---
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
+    // --- Pointer-drag state (replaces OrbitControls) ---
+    let isDragging = false;
+    let prevX = 0, prevY = 0;
+    let isSnapping = false;
+    let snapTargetX = 0, snapTargetY = 0;
+    const el = renderer.domElement;
+    el.style.cursor = 'grab';
+
+    const onPointerDown = (e: PointerEvent) => {
+      isDragging = true; isSnapping = false;
+      prevX = e.clientX; prevY = e.clientY;
+      el.setPointerCapture(e.pointerId);
+      el.style.cursor = 'grabbing';
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (!isDragging) return;
+      wrapperGroup.rotation.y += (e.clientX - prevX) * 0.008;
+      wrapperGroup.rotation.x += (e.clientY - prevY) * 0.008;
+      prevX = e.clientX; prevY = e.clientY;
+    };
+    const onPointerUp = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      el.style.cursor = 'grab';
+      isSnapping = true;
+      snapTargetX = 0; // always return to level
+      snapTargetY = Math.round(wrapperGroup.rotation.y / Math.PI) * Math.PI;
+    };
+    el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('pointermove', onPointerMove);
+    el.addEventListener('pointerup',   onPointerUp);
+    el.addEventListener('pointercancel', onPointerUp);
 
     // --- Lighting Setup ---
     scene.add(camera);
@@ -159,11 +186,25 @@ const SVG3D = ({ svg, smoothness = 0.5, color = '#4f46e5' }: { svg: string; smoo
       animationFrameId = requestAnimationFrame(animate);
       
       if (wrapperGroup) {
-         wrapperGroup.rotation.y += 0.001; 
-         wrapperGroup.scale.lerp(targetScale, 0.04); 
+        wrapperGroup.scale.lerp(targetScale, 0.04);
+
+        if (!isDragging) {
+          if (isSnapping) {
+            const ex = snapTargetX - wrapperGroup.rotation.x;
+            const ey = snapTargetY - wrapperGroup.rotation.y;
+            wrapperGroup.rotation.x += ex * 0.07;
+            wrapperGroup.rotation.y += ey * 0.07;
+            if (Math.abs(ex) < 0.0005 && Math.abs(ey) < 0.0005) {
+              wrapperGroup.rotation.x = snapTargetX;
+              wrapperGroup.rotation.y = snapTargetY;
+              isSnapping = false;
+            }
+          } else {
+            wrapperGroup.rotation.y += 0.001; // gentle idle spin
+          }
+        }
       }
       
-      controls.update();
       renderer.render(scene, camera);
     };
 
@@ -180,6 +221,10 @@ const SVG3D = ({ svg, smoothness = 0.5, color = '#4f46e5' }: { svg: string; smoo
     return () => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameId);
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('pointermove', onPointerMove);
+      el.removeEventListener('pointerup',   onPointerUp);
+      el.removeEventListener('pointercancel', onPointerUp);
       if (mountRef.current) {
         mountRef.current.removeChild(renderer.domElement);
       }
