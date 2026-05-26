@@ -192,8 +192,8 @@ const SVG3D = ({ svg, smoothness = 0.5, color = '#4f46e5' }: { svg: string; smoo
           if (isSnapping) {
             const ex = snapTargetX - wrapperGroup.rotation.x;
             const ey = snapTargetY - wrapperGroup.rotation.y;
-            wrapperGroup.rotation.x += ex * 0.07;
-            wrapperGroup.rotation.y += ey * 0.07;
+            wrapperGroup.rotation.x += ex * 0.03;
+            wrapperGroup.rotation.y += ey * 0.03;
             if (Math.abs(ex) < 0.0005 && Math.abs(ey) < 0.0005) {
               wrapperGroup.rotation.x = snapTargetX;
               wrapperGroup.rotation.y = snapTargetY;
