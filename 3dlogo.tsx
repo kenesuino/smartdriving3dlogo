@@ -980,7 +980,8 @@ const Clock: React.FC = () => {
   const cardBg  = isDark ? 'rgba(12,10,22,0.30)'  : 'rgba(255,255,255,0.18)';
   const cardBdr = isDark ? '1px solid rgba(255,255,255,0.10)' : '1px solid rgba(255,255,255,0.58)';
   const pillBg  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.45)';
-  const clr     = isDark ? '#f2f0fc'               : '#0d0f14';
+  const clr     = '#22223a';
+  const glow    = '0 0 18px rgba(255,255,255,0.70), 0 0 6px rgba(255,255,255,0.32)';
   const dim     = isDark ? '#6b7488'               : '#8a9ab0';
   const dot     = '#f0a060';
   const divClr  = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)';
@@ -1007,11 +1008,11 @@ const Clock: React.FC = () => {
       }}
     >
       {/* Date pill */}
+      <div style={{display:'flex', justifyContent:'center', marginBottom:sz*0.9}}>
       <div style={{
         display:'inline-flex', alignItems:'center', gap:sz*0.5,
         background:pillBg, borderRadius:sz*1.3,
         padding:`${sz*0.3}px ${sz*0.9}px`,
-        marginBottom:sz*0.9,
         boxShadow: isDark ? '0 1px 6px rgba(0,0,0,0.4)' : '0 1px 6px rgba(0,0,0,0.06)',
         fontSize:sz*0.75, fontWeight:600, letterSpacing:'0.08em',
         textTransform:'uppercase' as const, color:dim,
@@ -1029,17 +1030,18 @@ const Clock: React.FC = () => {
         <span style={{opacity:0.3}}>&nbsp;·&nbsp;</span>
         {now.getFullYear()}
       </div>
+      </div>
 
       {/* Time row */}
       <div style={{display:'flex', alignItems:'center', gap:sz*0.7}}>
         {/* HH · colon dots · MM */}
         <div style={{display:'flex', alignItems:'center', gap:sz*0.55}}>
-          <span style={{fontSize:sz*4.2, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.03em'}}>{hh}</span>
+          <span style={{fontSize:sz*4.2, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.03em', textShadow:glow}}>{hh}</span>
           <div style={{display:'flex', flexDirection:'column', gap:sz*0.44, paddingBottom:sz*0.15}}>
             <span style={{width:sz*0.54, height:sz*0.54, borderRadius:'50%', background:dot, display:'block'}}/>
             <span style={{width:sz*0.54, height:sz*0.54, borderRadius:'50%', background:dot, display:'block'}}/>
           </div>
-          <span style={{fontSize:sz*4.2, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.03em'}}>{mm}</span>
+          <span style={{fontSize:sz*4.2, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.03em', textShadow:glow}}>{mm}</span>
         </div>
 
         {/* Divider */}
@@ -1048,7 +1050,7 @@ const Clock: React.FC = () => {
         {/* SEC + AM/PM */}
         <div style={{display:'flex', flexDirection:'column', alignItems:'flex-start', justifyContent:'center', gap:sz*0.18}}>
           <span style={{fontSize:sz*0.68, fontWeight:700, color:dim, letterSpacing:'0.13em', lineHeight:1}}>SEC</span>
-          <span style={{fontSize:sz*2.5, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.02em'}}>{ss}</span>
+          <span style={{fontSize:sz*2.5, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.02em', textShadow:glow}}>{ss}</span>
           {!is24h && (
             <span style={{fontSize:sz*0.68, fontWeight:700, color:dot, letterSpacing:'0.09em', lineHeight:1}}>{ampm}</span>
           )}
