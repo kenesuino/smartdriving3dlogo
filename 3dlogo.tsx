@@ -906,7 +906,7 @@ const CLOCK_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct
 
 const Clock: React.FC = () => {
   const [now, setNow]     = useState(() => new Date());
-  const [pos, setPos]     = useState<{x:number;y:number}>(() => lsGet('clockPos', {x:16,y:16}));
+  const [pos, setPos]     = useState<{x:number;y:number}>(() => lsGet('clockPosC', {x:0, y:0}));
   const [size, setSize]   = useState<number>(() => lsGet('clockSize', 14));
   const [isDark, setIsDark] = useState<boolean>(() => lsGet('dark', false));
   const [is24h, setIs24h]   = useState<boolean>(() => lsGet('clock24h', true));
@@ -941,10 +941,10 @@ const Clock: React.FC = () => {
   const onCardMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (dragRef.current) {
       const np = {
-        x: Math.max(0, Math.min(window.innerWidth  - 320, dragRef.current.ox + e.clientX - dragRef.current.sx)),
-        y: Math.max(0, Math.min(window.innerHeight - 140, dragRef.current.oy + e.clientY - dragRef.current.sy)),
+        x: Math.max(-(window.innerWidth/2 - 180), Math.min(window.innerWidth/2 - 180, dragRef.current.ox + e.clientX - dragRef.current.sx)),
+        y: Math.max(-(window.innerHeight/2 - 80), Math.min(window.innerHeight/2 - 80, dragRef.current.oy + e.clientY - dragRef.current.sy)),
       };
-      posRef.current = np; setPos(np); lsSet('clockPos', np);
+      posRef.current = np; setPos(np); lsSet('clockPosC', np);
     } else if (resRef.current) {
       const ns = Math.max(10, Math.min(72, resRef.current.os + (e.clientY - resRef.current.sy) * 0.3));
       sizeRef.current = ns; setSize(ns); lsSet('clockSize', ns);
@@ -979,7 +979,7 @@ const Clock: React.FC = () => {
 
   const cardBg  = isDark ? 'rgba(12,10,22,0.30)'  : 'rgba(255,255,255,0.18)';
   const cardBdr = isDark ? '1px solid rgba(255,255,255,0.10)' : '1px solid rgba(255,255,255,0.58)';
-  const pillBg  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.45)';
+  const pillBg  = isDark ? '#1a1730' : '#ebe8f8';
   const clr     = '#22223a';
   const glow    = '0 0 18px rgba(255,255,255,0.70), 0 0 6px rgba(255,255,255,0.32)';
   const dim     = isDark ? '#6b7488'               : '#8a9ab0';
@@ -995,7 +995,9 @@ const Clock: React.FC = () => {
       onPointerUp={onCardUp}
       onContextMenu={e => e.preventDefault()}
       style={{
-        position:'fixed', left:pos.x, top:pos.y, zIndex:20,
+        position:'fixed',
+        left:`calc(50% + ${pos.x}px)`, top:`calc(50% + ${pos.y}px)`,
+        transform:'translate(-50%,-50%)', zIndex:20,
         background:cardBg, backdropFilter:'blur(40px) saturate(2.4)',
         border:cardBdr, borderRadius:sz*1.7,
         padding:`${sz*1.0}px ${sz*1.6}px ${sz*1.4}px`,
