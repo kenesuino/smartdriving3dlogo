@@ -11,6 +11,12 @@
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       html, body, #root { width: 100%; height: 100%; overflow: hidden; }
     </style>
+    <script>
+      (function() {
+        var r = sessionStorage.getItem('smdl_spa_path');
+        if (r) { sessionStorage.removeItem('smdl_spa_path'); window.history.replaceState(null, null, r); }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

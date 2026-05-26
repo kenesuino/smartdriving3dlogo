@@ -681,7 +681,7 @@ const EFFECT_LABELS: Record<EffectName, string> = {
   aurora:'Aurora', constellation:'Stars', hexgrid:'Hex', waves:'Waves', swarm:'Swarm',
 };
 
-const BackgroundFX: React.FC = () => {
+const BackgroundFX: React.FC<{fixedIntervalMs?: number; hideControls?: boolean}> = ({ fixedIntervalMs, hideControls }) => {
   const canvasRef        = useRef<HTMLCanvasElement>(null);
   const videoRef         = useRef<HTMLVideoElement>(null);
   const mouseRef         = useRef<Mouse>({x:-9999,y:-9999});
@@ -695,7 +695,7 @@ const BackgroundFX: React.FC = () => {
   const phaseStartRef    = useRef(-1);
   const lockedRef        = useRef(lsGet<boolean>('locked', false));
   const darkRef          = useRef(lsGet<boolean>('dark', false));
-  const holdMsRef        = useRef(lsGet<number>('holdMs', EFFECT_HOLD_MS));
+  const holdMsRef        = useRef(fixedIntervalMs ?? lsGet<number>('holdMs', EFFECT_HOLD_MS));
   const lastEffRef       = useRef<EffectName>(EFFECT_NAMES[0]);
   const [displayEff, setDisplayEff] = useState<EffectName>(EFFECT_NAMES[0]);
   const [locked, setLocked] = useState(() => lsGet<boolean>('locked', false));
@@ -839,7 +839,7 @@ const BackgroundFX: React.FC = () => {
       <canvas ref={canvasRef} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',zIndex:0}} />
 
       {/* top-right control area */}
-      <div style={{position:'absolute',top:8,right:8,zIndex:10,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4,fontFamily:'system-ui,sans-serif',userSelect:'none'}}>
+      <div style={{position:'absolute',top:8,right:8,zIndex:10,display: hideControls ? 'none' : 'flex',flexDirection:'column',alignItems:'flex-end',gap:4,fontFamily:'system-ui,sans-serif',userSelect:'none'}}>
 
         {/* pill */}
         <div style={{display:'flex',alignItems:'center',background:pillBg,backdropFilter:'blur(5px)',border:pillBdr,borderRadius:12,padding:'1px 2px',boxShadow:'0 1px 4px rgba(0,0,0,0.10)'}}>
@@ -1144,6 +1144,97 @@ const Clock: React.FC = () => {
   );
 };
 
+// ── ClockFixed component (fixed route) ─────────────────────────────────────
+const ClockFixed: React.FC = () => {
+  const [now, setNow]       = useState(() => new Date());
+  const [isDark, setIsDark] = useState<boolean>(() => lsGet('dark', false));
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    const sync = () => setIsDark(lsGet('dark', false));
+    window.addEventListener('smdl_darkchange', sync);
+    return () => window.removeEventListener('smdl_darkchange', sync);
+  }, []);
+
+  const rawH     = now.getHours();
+  const displayH = rawH % 12 || 12;
+  const hh = String(displayH).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  const ampm = rawH < 12 ? 'AM' : 'PM';
+  const sz = 11;
+
+  const cardBg    = isDark ? 'rgba(8,6,18,0.16)'  : 'rgba(255,255,255,0.11)';
+  const cardBdr   = isDark ? '1px solid rgba(255,255,255,0.13)' : '1px solid rgba(255,255,255,0.68)';
+  const pillBg    = isDark ? 'rgba(18,14,36,0.78)' : 'rgba(255,255,255,0.68)';
+  const clr       = '#22223a';
+  const glow      = '0 0 18px rgba(255,255,255,0.70), 0 0 6px rgba(255,255,255,0.32)';
+  const faintGlow = '0 0 8px rgba(255,255,255,0.55), 0 0 3px rgba(255,255,255,0.25)';
+  const dim       = isDark ? '#b0b8cc' : '#6b7a90';
+  const dot       = '#f0a060';
+  const divClr    = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)';
+
+  return (
+    <div style={{
+      position:'fixed', left:16, top:16, zIndex:20,
+      background:cardBg, backdropFilter:'blur(64px) saturate(3.2)',
+      border:cardBdr, borderRadius:sz*1.7,
+      padding:`${sz*1.0}px ${sz*1.6}px ${sz*1.4}px`,
+      fontFamily:"'Montserrat',system-ui,sans-serif",
+      userSelect:'none',
+      boxShadow: isDark
+        ? '0 8px 48px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.06)'
+        : '0 6px 40px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
+      minWidth:sz*20,
+    }}>
+      <div style={{display:'flex', justifyContent:'center', marginBottom:sz*0.9}}>
+        <div style={{
+          display:'inline-flex', alignItems:'center', gap:sz*0.5,
+          background:pillBg, borderRadius:sz*1.3,
+          backdropFilter:'blur(20px) saturate(1.8)',
+          padding:`${sz*0.3}px ${sz*0.9}px`,
+          border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.60)',
+          boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.50)' : '0 2px 10px rgba(0,0,0,0.08)',
+          fontSize:sz*0.75, fontWeight:600, letterSpacing:'0.08em',
+          textTransform:'uppercase' as const, color:dim,
+        }}>
+          <svg width={sz*0.9} height={sz*0.9} viewBox="0 0 16 16" fill="none"
+            stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="1.5" y="3" width="13" height="11.5" rx="2"/>
+            <path d="M5 1.5v3M11 1.5v3M1.5 7h13"/>
+          </svg>
+          {CLOCK_DAYS[now.getDay()]}
+          <span style={{opacity:0.3}}>&nbsp;·&nbsp;</span>
+          {String(now.getDate()).padStart(2,'0')}
+          <span style={{opacity:0.3}}>&nbsp;·&nbsp;</span>
+          {CLOCK_MONTHS[now.getMonth()]}
+          <span style={{opacity:0.3}}>&nbsp;·&nbsp;</span>
+          {now.getFullYear()}
+        </div>
+      </div>
+      <div style={{display:'flex', alignItems:'center', gap:sz*0.7}}>
+        <div style={{display:'flex', alignItems:'center', gap:sz*0.55}}>
+          <span style={{fontSize:sz*4.2, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.03em', textShadow:glow}}>{hh}</span>
+          <div style={{display:'flex', flexDirection:'column', gap:sz*0.44, paddingBottom:sz*0.15}}>
+            <span style={{width:sz*0.54, height:sz*0.54, borderRadius:'50%', background:dot, display:'block'}}/>
+            <span style={{width:sz*0.54, height:sz*0.54, borderRadius:'50%', background:dot, display:'block'}}/>
+          </div>
+          <span style={{fontSize:sz*4.2, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.03em', textShadow:glow}}>{mm}</span>
+        </div>
+        <div style={{width:1, alignSelf:'stretch', background:divClr, margin:`${sz*0.4}px 0`, flexShrink:0}}/>
+        <div style={{display:'flex', flexDirection:'column', alignItems:'flex-start', justifyContent:'center', gap:sz*0.18}}>
+          <span style={{fontSize:sz*0.68, fontWeight:700, color:dim, letterSpacing:'0.13em', lineHeight:1, textShadow:faintGlow}}>SEC</span>
+          <span style={{fontSize:sz*2.5, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.02em', textShadow:glow}}>{ss}</span>
+          <span style={{fontSize:sz*0.68, fontWeight:700, color:dot, letterSpacing:'0.09em', lineHeight:1, textShadow:faintGlow}}>{ampm}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
@@ -1174,11 +1265,12 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBounda
 }
 
 export default function App() {
+  const isFixed = window.location.pathname.replace(/\/$/, '').endsWith('/fixed');
   return (
     <ErrorBoundary>
       <div style={{position:'relative',width:'100vw',height:'100vh',overflow:'hidden'}}>
-        <BackgroundFX />
-        <Clock />
+        <BackgroundFX fixedIntervalMs={isFixed ? 120_000 : undefined} hideControls={isFixed} />
+        {isFixed ? <ClockFixed /> : <Clock />}
         <div style={{position:'relative',zIndex:1,width:'100%',height:'100%'}}>
           <SVG3D svg={mySvg} smoothness={0.6} color="#4f46e5" />
         </div>
