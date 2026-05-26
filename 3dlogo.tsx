@@ -928,20 +928,31 @@ const Clock: React.FC = () => {
 
   const onCardDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
-    dragRef.current = {sx:e.clientX, sy:e.clientY, ox:posRef.current.x, oy:posRef.current.y};
-    e.currentTarget.setPointerCapture(e.pointerId);
-    e.currentTarget.style.cursor = 'grabbing';
+    if (e.ctrlKey) {
+      dragRef.current = {sx:e.clientX, sy:e.clientY, ox:posRef.current.x, oy:posRef.current.y};
+      e.currentTarget.setPointerCapture(e.pointerId);
+      e.currentTarget.style.cursor = 'grabbing';
+    } else if (e.shiftKey) {
+      resRef.current = {sy:e.clientY, os:sizeRef.current};
+      e.currentTarget.setPointerCapture(e.pointerId);
+      e.currentTarget.style.cursor = 'ns-resize';
+    }
   };
   const onCardMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current) return;
-    const np = {
-      x: Math.max(0, Math.min(window.innerWidth  - 320, dragRef.current.ox + e.clientX - dragRef.current.sx)),
-      y: Math.max(0, Math.min(window.innerHeight - 140, dragRef.current.oy + e.clientY - dragRef.current.sy)),
-    };
-    posRef.current = np; setPos(np); lsSet('clockPos', np);
+    if (dragRef.current) {
+      const np = {
+        x: Math.max(0, Math.min(window.innerWidth  - 320, dragRef.current.ox + e.clientX - dragRef.current.sx)),
+        y: Math.max(0, Math.min(window.innerHeight - 140, dragRef.current.oy + e.clientY - dragRef.current.sy)),
+      };
+      posRef.current = np; setPos(np); lsSet('clockPos', np);
+    } else if (resRef.current) {
+      const ns = Math.max(10, Math.min(72, resRef.current.os + (e.clientY - resRef.current.sy) * 0.3));
+      sizeRef.current = ns; setSize(ns); lsSet('clockSize', ns);
+    }
   };
   const onCardUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    dragRef.current = null; e.currentTarget.style.cursor = 'grab';
+    dragRef.current = null; resRef.current = null;
+    e.currentTarget.style.cursor = 'default';
   };
 
   const onResDown = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -966,30 +977,32 @@ const Clock: React.FC = () => {
   const ampm = rawH < 12 ? 'AM' : 'PM';
   const sz = size;
 
-  const cardBg = isDark ? 'rgba(22,20,30,0.95)'  : 'rgba(252,249,244,0.97)';
-  const pillBg = isDark ? 'rgba(40,36,56,0.82)'  : 'rgba(255,255,255,0.88)';
-  const clr    = isDark ? '#eceaf4'               : '#0d0f14';
-  const dim    = isDark ? '#5a6070'               : '#9ca3af';
-  const dot    = '#f0a060';
-  const divClr = isDark ? 'rgba(255,255,255,0.09)': 'rgba(0,0,0,0.07)';
-  const btnBg  = isDark ? 'rgba(255,255,255,0.09)': 'rgba(255,255,255,0.95)';
+  const cardBg  = isDark ? 'rgba(12,10,22,0.30)'  : 'rgba(255,255,255,0.18)';
+  const cardBdr = isDark ? '1px solid rgba(255,255,255,0.10)' : '1px solid rgba(255,255,255,0.58)';
+  const pillBg  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.45)';
+  const clr     = isDark ? '#f2f0fc'               : '#0d0f14';
+  const dim     = isDark ? '#6b7488'               : '#8a9ab0';
+  const dot     = '#f0a060';
+  const divClr  = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)';
+  const btnBg   = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.62)';
 
   return (
     <div
+      title="Ctrl+drag: move  •  Shift+drag: resize"
       onPointerDown={onCardDown}
       onPointerMove={onCardMove}
       onPointerUp={onCardUp}
       onContextMenu={e => e.preventDefault()}
       style={{
         position:'fixed', left:pos.x, top:pos.y, zIndex:20,
-        background:cardBg, backdropFilter:'blur(28px) saturate(1.9)',
-        borderRadius:sz*1.7,
+        background:cardBg, backdropFilter:'blur(40px) saturate(2.4)',
+        border:cardBdr, borderRadius:sz*1.7,
         padding:`${sz*1.0}px ${sz*1.6}px ${sz*1.4}px`,
-        cursor:'grab', userSelect:'none',
+        cursor:'default', userSelect:'none',
         boxShadow: isDark
-          ? '0 8px 48px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.05)'
-          : '0 4px 40px rgba(0,0,0,0.09), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1)',
-        fontFamily:"system-ui,-apple-system,'Segoe UI',sans-serif",
+          ? '0 8px 48px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.06)'
+          : '0 6px 40px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
+        fontFamily:"'Montserrat',system-ui,sans-serif",
         minWidth:sz*20,
       }}
     >
