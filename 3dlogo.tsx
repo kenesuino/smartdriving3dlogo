@@ -979,10 +979,10 @@ const Clock: React.FC = () => {
 
   const cardBg  = isDark ? 'rgba(12,10,22,0.30)'  : 'rgba(255,255,255,0.18)';
   const cardBdr = isDark ? '1px solid rgba(255,255,255,0.10)' : '1px solid rgba(255,255,255,0.58)';
-  const pillBg  = isDark ? '#1a1730' : '#ebe8f8';
+  const pillBg  = isDark ? 'rgba(18,14,36,0.78)' : 'rgba(255,255,255,0.68)';
   const clr     = '#22223a';
   const glow    = '0 0 18px rgba(255,255,255,0.70), 0 0 6px rgba(255,255,255,0.32)';
-  const dim     = isDark ? '#6b7488'               : '#8a9ab0';
+  const dim     = isDark ? '#b0b8cc'               : '#6b7a90';
   const dot     = '#f0a060';
   const divClr  = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)';
   const btnBg   = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.62)';
@@ -1014,8 +1014,10 @@ const Clock: React.FC = () => {
       <div style={{
         display:'inline-flex', alignItems:'center', gap:sz*0.5,
         background:pillBg, borderRadius:sz*1.3,
+        backdropFilter:'blur(20px) saturate(1.8)',
         padding:`${sz*0.3}px ${sz*0.9}px`,
-        boxShadow: isDark ? '0 1px 6px rgba(0,0,0,0.4)' : '0 1px 6px rgba(0,0,0,0.06)',
+        border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.60)',
+        boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.50)' : '0 2px 10px rgba(0,0,0,0.08)',
         fontSize:sz*0.75, fontWeight:600, letterSpacing:'0.08em',
         textTransform:'uppercase' as const, color:dim,
       }}>
