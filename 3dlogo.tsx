@@ -599,7 +599,8 @@ function drawVideoBg(ctx: CanvasRenderingContext2D, W: number, H: number, video:
   const sw = vw * scale, sh = vh * scale;
   const sx = (W - sw) / 2, sy = (H - sh) / 2;
   ctx.drawImage(video, sx, sy, sw, sh);
-  if (dark) { ctx.fillStyle = 'rgba(0,0,0,0.20)'; ctx.fillRect(0,0,W,H); }
+  ctx.fillStyle = dark ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.30)';
+  ctx.fillRect(0, 0, W, H);
 }
 
 // ── Dispatcher ───────────────────────────────────────────────────────────────
