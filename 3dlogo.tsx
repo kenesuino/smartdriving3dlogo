@@ -1014,6 +1014,8 @@ const Clock: React.FC = () => {
 
   const toggle24h = () => { const nv = !is24h; setIs24h(nv); urlSet('h24', nv); };
 
+  const showSettings = urlGet<boolean>('settings', true);
+
   const rawH     = now.getHours();
   const displayH = is24h ? rawH : (rawH % 12 || 12);
   const hh = String(displayH).padStart(2,'0');
