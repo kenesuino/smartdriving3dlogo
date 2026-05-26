@@ -901,13 +901,12 @@ const BackgroundFX: React.FC<{fixedIntervalMs?: number; hideControls?: boolean}>
             )}
           </div>
         )}
-      </div>
       {/* Save button — locks current settings into URL */}
       <button
         onClick={() => { urlSet('settings', false); window.location.reload(); }}
         title="Save current settings and lock controls"
         style={{
-          marginTop:4, alignSelf:'flex-end',
+          alignSelf:'flex-end',
           background: dark ? 'rgba(99,102,241,0.85)' : 'rgba(99,102,241,0.92)',
           color:'#fff', border:'none', borderRadius:8,
           padding:'4px 12px', fontSize:11, fontWeight:700,
@@ -916,6 +915,7 @@ const BackgroundFX: React.FC<{fixedIntervalMs?: number; hideControls?: boolean}>
           boxShadow:'0 2px 8px rgba(99,102,241,0.35)',
         }}
       >SAVE</button>
+      </div>
     </div>
   );
 };
