@@ -910,6 +910,8 @@ const Clock: React.FC = () => {
   const [size, setSize]   = useState<number>(() => lsGet('clockSize', 14));
   const [isDark, setIsDark] = useState<boolean>(() => lsGet('dark', false));
   const [is24h, setIs24h]   = useState<boolean>(() => lsGet('clock24h', true));
+  const [hovered, setHovered] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const posRef  = useRef(pos);
   const sizeRef = useRef(size);
   const dragRef = useRef<{sx:number;sy:number;ox:number;oy:number}|null>(null);
@@ -959,13 +961,33 @@ const Clock: React.FC = () => {
     e.stopPropagation();
     resRef.current = {sy:e.clientY, os:sizeRef.current};
     e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
   };
   const onResMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!resRef.current) return;
     const ns = Math.max(10, Math.min(72, resRef.current.os + (e.clientY - resRef.current.sy) * 0.3));
     sizeRef.current = ns; setSize(ns); lsSet('clockSize', ns);
   };
-  const onResUp = (_e: React.PointerEvent<HTMLButtonElement>) => { resRef.current = null; };
+  const onResUp = (_e: React.PointerEvent<HTMLButtonElement>) => { resRef.current = null; setDragging(false); };
+
+  const onDragBtnDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    dragRef.current = {sx:e.clientX, sy:e.clientY, ox:posRef.current.x, oy:posRef.current.y};
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.currentTarget.style.cursor = 'grabbing';
+    setDragging(true);
+  };
+  const onDragBtnMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragRef.current) return;
+    const np = {
+      x: Math.max(-(window.innerWidth/2-180), Math.min(window.innerWidth/2-180, dragRef.current.ox + e.clientX - dragRef.current.sx)),
+      y: Math.max(-(window.innerHeight/2-80), Math.min(window.innerHeight/2-80, dragRef.current.oy + e.clientY - dragRef.current.sy)),
+    };
+    posRef.current = np; setPos(np); lsSet('clockPosC', np);
+  };
+  const onDragBtnUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    dragRef.current = null; e.currentTarget.style.cursor = 'grab'; setDragging(false);
+  };
 
   const toggle24h = () => { const nv = !is24h; setIs24h(nv); lsSet('clock24h', nv); };
 
@@ -977,11 +999,12 @@ const Clock: React.FC = () => {
   const ampm = rawH < 12 ? 'AM' : 'PM';
   const sz = size;
 
-  const cardBg  = isDark ? 'rgba(12,10,22,0.30)'  : 'rgba(255,255,255,0.18)';
-  const cardBdr = isDark ? '1px solid rgba(255,255,255,0.10)' : '1px solid rgba(255,255,255,0.58)';
+  const cardBg  = isDark ? 'rgba(8,6,18,0.16)'   : 'rgba(255,255,255,0.11)';
+  const cardBdr = isDark ? '1px solid rgba(255,255,255,0.13)' : '1px solid rgba(255,255,255,0.68)';
   const pillBg  = isDark ? 'rgba(18,14,36,0.78)' : 'rgba(255,255,255,0.68)';
   const clr     = '#22223a';
   const glow    = '0 0 18px rgba(255,255,255,0.70), 0 0 6px rgba(255,255,255,0.32)';
+  const faintGlow = '0 0 8px rgba(255,255,255,0.55), 0 0 3px rgba(255,255,255,0.25)';
   const dim     = isDark ? '#b0b8cc'               : '#6b7a90';
   const dot     = '#f0a060';
   const divClr  = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)';
@@ -994,11 +1017,13 @@ const Clock: React.FC = () => {
       onPointerMove={onCardMove}
       onPointerUp={onCardUp}
       onContextMenu={e => e.preventDefault()}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         position:'fixed',
         left:`calc(50% + ${pos.x}px)`, top:`calc(50% + ${pos.y}px)`,
         transform:'translate(-50%,-50%)', zIndex:20,
-        background:cardBg, backdropFilter:'blur(40px) saturate(2.4)',
+        background:cardBg, backdropFilter:'blur(64px) saturate(3.2)',
         border:cardBdr, borderRadius:sz*1.7,
         padding:`${sz*1.0}px ${sz*1.6}px ${sz*1.4}px`,
         cursor:'default', userSelect:'none',
@@ -1053,15 +1078,15 @@ const Clock: React.FC = () => {
 
         {/* SEC + AM/PM */}
         <div style={{display:'flex', flexDirection:'column', alignItems:'flex-start', justifyContent:'center', gap:sz*0.18}}>
-          <span style={{fontSize:sz*0.68, fontWeight:700, color:dim, letterSpacing:'0.13em', lineHeight:1}}>SEC</span>
+          <span style={{fontSize:sz*0.68, fontWeight:700, color:dim, letterSpacing:'0.13em', lineHeight:1, textShadow:faintGlow}}>SEC</span>
           <span style={{fontSize:sz*2.5, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.02em', textShadow:glow}}>{ss}</span>
           {!is24h && (
-            <span style={{fontSize:sz*0.68, fontWeight:700, color:dot, letterSpacing:'0.09em', lineHeight:1}}>{ampm}</span>
+            <span style={{fontSize:sz*0.68, fontWeight:700, color:dot, letterSpacing:'0.09em', lineHeight:1, textShadow:faintGlow}}>{ampm}</span>
           )}
         </div>
       </div>
 
-      {/* Bottom row: 12/24h toggle + resize handle */}
+      {/* Bottom row: 12/24h toggle + hover buttons */}
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:sz*0.7}}>
         <button
           onClick={toggle24h}
@@ -1073,26 +1098,47 @@ const Clock: React.FC = () => {
             padding:`${sz*0.22}px ${sz*0.6}px`,
             cursor:'pointer', color:dim,
             fontSize:sz*0.7, fontWeight:700, letterSpacing:'0.05em', fontFamily:'inherit',
+            textShadow:faintGlow,
           }}
         >{is24h ? '24 h' : '12 h'}</button>
 
-        <button
-          onPointerDown={onResDown}
-          onPointerMove={onResMove}
-          onPointerUp={onResUp}
-          onContextMenu={e => e.preventDefault()}
-          title="Drag up / down to resize"
-          style={{
-            width:sz*1.9, height:sz*1.9, flexShrink:0,
-            background:btnBg, border:'none', borderRadius:'50%',
-            boxShadow: isDark
-              ? '0 2px 10px rgba(0,0,0,0.55)'
-              : '0 2px 10px rgba(0,0,0,0.11), inset 0 1px 0 rgba(255,255,255,1)',
-            cursor:'ns-resize',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:sz*0.82, color:dim, padding:0,
-          }}
-        >⤡</button>
+        <div style={{display:'flex', gap:sz*0.4}}>
+          <button
+            onPointerDown={onDragBtnDown}
+            onPointerMove={onDragBtnMove}
+            onPointerUp={onDragBtnUp}
+            title="Drag to move"
+            style={{
+              width:sz*1.9, height:sz*1.9, flexShrink:0,
+              background:btnBg, border:'none', borderRadius:'50%',
+              boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.55)' : '0 2px 10px rgba(0,0,0,0.11)',
+              cursor:'grab',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:sz*0.9, color:dim, padding:0,
+              opacity: (hovered || dragging) ? 1 : 0,
+              transition:'opacity 0.18s ease',
+              pointerEvents: (hovered || dragging) ? 'auto' : 'none',
+            }}
+          >⠿</button>
+          <button
+            onPointerDown={onResDown}
+            onPointerMove={onResMove}
+            onPointerUp={onResUp}
+            onContextMenu={e => e.preventDefault()}
+            title="Drag up / down to resize"
+            style={{
+              width:sz*1.9, height:sz*1.9, flexShrink:0,
+              background:btnBg, border:'none', borderRadius:'50%',
+              boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.55)' : '0 2px 10px rgba(0,0,0,0.11)',
+              cursor:'ns-resize',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:sz*0.82, color:dim, padding:0,
+              opacity: (hovered || dragging) ? 1 : 0,
+              transition:'opacity 0.18s ease',
+              pointerEvents: (hovered || dragging) ? 'auto' : 'none',
+            }}
+          >⤡</button>
+        </div>
       </div>
     </div>
   );
