@@ -665,13 +665,20 @@ function drawEffect(ctx: CanvasRenderingContext2D, name: EffectName, t: number, 
   }
 }
 
-// ── localStorage helpers ───────────────────────────────────────────────────
-function lsGet<T>(key: string, fallback: T): T {
-  try { const v = localStorage.getItem('smdl_' + key); return v !== null ? (JSON.parse(v) as T) : fallback; }
-  catch { return fallback; }
+// ── URL param helpers ───────────────────────────────────────────────────────
+function urlGet<T>(key: string, fallback: T): T {
+  try {
+    const v = new URLSearchParams(window.location.search).get(key);
+    if (v === null) return fallback;
+    return typeof fallback === 'string' ? v as unknown as T : JSON.parse(v) as T;
+  } catch { return fallback; }
 }
-function lsSet(key: string, value: unknown): void {
-  try { localStorage.setItem('smdl_' + key, JSON.stringify(value)); } catch {}
+function urlSet(key: string, value: unknown): void {
+  try {
+    const p = new URLSearchParams(window.location.search);
+    p.set(key, typeof value === 'string' ? value : JSON.stringify(value));
+    window.history.replaceState(null, '', window.location.pathname + '?' + p.toString());
+  } catch {}
 }
 
 // ── BackgroundFX component ───────────────────────────────────────────────────
@@ -693,16 +700,16 @@ const BackgroundFX: React.FC<{fixedIntervalMs?: number; hideControls?: boolean}>
   const fcRef            = useRef(0);
   const effectIdxRef     = useRef(0);
   const phaseStartRef    = useRef(-1);
-  const lockedRef        = useRef(lsGet<boolean>('locked', false));
-  const darkRef          = useRef(lsGet<boolean>('dark', false));
-  const holdMsRef        = useRef(fixedIntervalMs ?? lsGet<number>('holdMs', EFFECT_HOLD_MS));
+  const lockedRef        = useRef(urlGet<boolean>('lk', false));
+  const darkRef          = useRef(urlGet<boolean>('dark', false));
+  const holdMsRef        = useRef(fixedIntervalMs ?? urlGet<number>('hold', EFFECT_HOLD_MS));
   const lastEffRef       = useRef<EffectName>(EFFECT_NAMES[0]);
   const [displayEff, setDisplayEff] = useState<EffectName>(EFFECT_NAMES[0]);
-  const [locked, setLocked] = useState(() => lsGet<boolean>('locked', false));
-  const [dark, setDark] = useState(() => lsGet<boolean>('dark', false));
+  const [locked, setLocked] = useState(() => urlGet<boolean>('lk', false));
+  const [dark, setDark] = useState(() => urlGet<boolean>('dark', false));
   const [showSettings, setShowSettings] = useState(false);
-  const [intervalPreset, setIntervalPreset] = useState<'1'|'5'|'10'|'custom'>(() => lsGet<'1'|'5'|'10'|'custom'>('intervalPreset', 'custom'));
-  const [customMin, setCustomMin] = useState(() => lsGet<string>('customMin', '0.167'));
+  const [intervalPreset, setIntervalPreset] = useState<'1'|'5'|'10'|'custom'>(() => urlGet<'1'|'5'|'10'|'custom'>('pre', 'custom'));
+  const [customMin, setCustomMin] = useState(() => urlGet<string>('cmin', '0.167'));
 
   const handleNext = () => {
     effectIdxRef.current = (effectIdxRef.current + 1) % EFFECT_NAMES.length;
@@ -713,14 +720,14 @@ const BackgroundFX: React.FC<{fixedIntervalMs?: number; hideControls?: boolean}>
     lockedRef.current = nl;
     if (!nl) phaseStartRef.current = -1;
     setLocked(nl);
-    lsSet('locked', nl);
+    urlSet('lk', nl);
   };
   const handleDark = () => {
     const nd = !darkRef.current;
     darkRef.current = nd;
     setDark(nd);
-    lsSet('dark', nd);
-    window.dispatchEvent(new CustomEvent('smdl_darkchange'));
+    urlSet('dark', nd);
+    window.dispatchEvent(new CustomEvent('smdl_darkchange', { detail: nd }));
   };
 
   useEffect(() => {
@@ -814,8 +821,8 @@ const BackgroundFX: React.FC<{fixedIntervalMs?: number; hideControls?: boolean}>
     holdMsRef.current = ms;
     setIntervalPreset(preset);
     phaseStartRef.current = -1;
-    lsSet('holdMs', ms);
-    lsSet('intervalPreset', preset);
+    urlSet('hold', ms);
+    urlSet('pre', preset);
   };
 
   const presetBtn = (label: string, preset: '1'|'5'|'10'|'custom', ms: number) => (
@@ -880,7 +887,7 @@ const BackgroundFX: React.FC<{fixedIntervalMs?: number; hideControls?: boolean}>
                     const v = e.target.value;
                     setCustomMin(v);
                     const ms = Math.max(100, Math.round(parseFloat(v) * 60_000));
-                    if (!isNaN(ms)) { holdMsRef.current = ms; phaseStartRef.current = -1; lsSet('holdMs', ms); lsSet('customMin', v); }
+                    if (!isNaN(ms)) { holdMsRef.current = ms; phaseStartRef.current = -1; urlSet('hold', ms); urlSet('cmin', v); }
                   }}
                   style={{
                     width:60, background:'none',
@@ -906,10 +913,10 @@ const CLOCK_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct
 
 const Clock: React.FC = () => {
   const [now, setNow]     = useState(() => new Date());
-  const [pos, setPos]     = useState<{x:number;y:number}>(() => lsGet('clockPosC', {x:0, y:0}));
-  const [size, setSize]   = useState<number>(() => lsGet('clockSize', 14));
-  const [isDark, setIsDark] = useState<boolean>(() => lsGet('dark', false));
-  const [is24h, setIs24h]   = useState<boolean>(() => lsGet('clock24h', true));
+  const [pos, setPos]     = useState<{x:number;y:number}>(() => ({ x: urlGet<number>('px', 0), y: urlGet<number>('py', 0) }));
+  const [size, setSize]   = useState<number>(() => urlGet<number>('sz', 14));
+  const [isDark, setIsDark] = useState<boolean>(() => urlGet<boolean>('dark', false));
+  const [is24h, setIs24h]   = useState<boolean>(() => urlGet<boolean>('h24', true));
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
   const posRef  = useRef(pos);
@@ -923,7 +930,7 @@ const Clock: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const sync = () => setIsDark(lsGet('dark', false));
+    const sync = (e: Event) => setIsDark((e as CustomEvent<boolean>).detail);
     window.addEventListener('smdl_darkchange', sync);
     return () => window.removeEventListener('smdl_darkchange', sync);
   }, []);
@@ -946,13 +953,14 @@ const Clock: React.FC = () => {
         x: Math.max(-(window.innerWidth/2 - 180), Math.min(window.innerWidth/2 - 180, dragRef.current.ox + e.clientX - dragRef.current.sx)),
         y: Math.max(-(window.innerHeight/2 - 80), Math.min(window.innerHeight/2 - 80, dragRef.current.oy + e.clientY - dragRef.current.sy)),
       };
-      posRef.current = np; setPos(np); lsSet('clockPosC', np);
+      posRef.current = np; setPos(np);
     } else if (resRef.current) {
       const ns = Math.max(10, Math.min(72, resRef.current.os + (e.clientY - resRef.current.sy) * 0.3));
-      sizeRef.current = ns; setSize(ns); lsSet('clockSize', ns);
+      sizeRef.current = ns; setSize(ns);
     }
   };
   const onCardUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    urlSet('px', posRef.current.x); urlSet('py', posRef.current.y); urlSet('sz', sizeRef.current);
     dragRef.current = null; resRef.current = null;
     e.currentTarget.style.cursor = 'default';
   };
@@ -966,9 +974,9 @@ const Clock: React.FC = () => {
   const onResMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!resRef.current) return;
     const ns = Math.max(10, Math.min(72, resRef.current.os + (e.clientY - resRef.current.sy) * 0.3));
-    sizeRef.current = ns; setSize(ns); lsSet('clockSize', ns);
+    sizeRef.current = ns; setSize(ns);
   };
-  const onResUp = (_e: React.PointerEvent<HTMLButtonElement>) => { resRef.current = null; setDragging(false); };
+  const onResUp = (_e: React.PointerEvent<HTMLButtonElement>) => { urlSet('sz', sizeRef.current); resRef.current = null; setDragging(false); };
 
   const onDragBtnDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -983,13 +991,14 @@ const Clock: React.FC = () => {
       x: Math.max(-(window.innerWidth/2-180), Math.min(window.innerWidth/2-180, dragRef.current.ox + e.clientX - dragRef.current.sx)),
       y: Math.max(-(window.innerHeight/2-80), Math.min(window.innerHeight/2-80, dragRef.current.oy + e.clientY - dragRef.current.sy)),
     };
-    posRef.current = np; setPos(np); lsSet('clockPosC', np);
+    posRef.current = np; setPos(np);
   };
   const onDragBtnUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    urlSet('px', posRef.current.x); urlSet('py', posRef.current.y);
     dragRef.current = null; e.currentTarget.style.cursor = 'grab'; setDragging(false);
   };
 
-  const toggle24h = () => { const nv = !is24h; setIs24h(nv); lsSet('clock24h', nv); };
+  const toggle24h = () => { const nv = !is24h; setIs24h(nv); urlSet('h24', nv); };
 
   const rawH     = now.getHours();
   const displayH = is24h ? rawH : (rawH % 12 || 12);
@@ -1147,14 +1156,14 @@ const Clock: React.FC = () => {
 // ── ClockFixed component (fixed route) ─────────────────────────────────────
 const ClockFixed: React.FC = () => {
   const [now, setNow]       = useState(() => new Date());
-  const [isDark, setIsDark] = useState<boolean>(() => lsGet('dark', false));
+  const [isDark, setIsDark] = useState<boolean>(() => urlGet<boolean>('dark', false));
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
   useEffect(() => {
-    const sync = () => setIsDark(lsGet('dark', false));
+    const sync = (e: Event) => setIsDark((e as CustomEvent<boolean>).detail);
     window.addEventListener('smdl_darkchange', sync);
     return () => window.removeEventListener('smdl_darkchange', sync);
   }, []);
