@@ -964,8 +964,8 @@ const Clock: React.FC = () => {
   const onCardMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (dragRef.current) {
       const np = {
-        x: Math.max(-(window.innerWidth/2 - 180), Math.min(window.innerWidth/2 - 180, dragRef.current.ox + e.clientX - dragRef.current.sx)),
-        y: Math.max(-(window.innerHeight/2 - 80), Math.min(window.innerHeight/2 - 80, dragRef.current.oy + e.clientY - dragRef.current.sy)),
+        x: dragRef.current.ox + e.clientX - dragRef.current.sx,
+        y: dragRef.current.oy + e.clientY - dragRef.current.sy,
       };
       posRef.current = np; setPos(np);
     } else if (resRef.current) {
@@ -1002,8 +1002,8 @@ const Clock: React.FC = () => {
   const onDragBtnMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!dragRef.current) return;
     const np = {
-      x: Math.max(-(window.innerWidth/2-180), Math.min(window.innerWidth/2-180, dragRef.current.ox + e.clientX - dragRef.current.sx)),
-      y: Math.max(-(window.innerHeight/2-80), Math.min(window.innerHeight/2-80, dragRef.current.oy + e.clientY - dragRef.current.sy)),
+      x: dragRef.current.ox + e.clientX - dragRef.current.sx,
+      y: dragRef.current.oy + e.clientY - dragRef.current.sy,
     };
     posRef.current = np; setPos(np);
   };
