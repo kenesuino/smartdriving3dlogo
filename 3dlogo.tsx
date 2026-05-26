@@ -665,6 +665,15 @@ function drawEffect(ctx: CanvasRenderingContext2D, name: EffectName, t: number, 
   }
 }
 
+// ── localStorage helpers ───────────────────────────────────────────────────
+function lsGet<T>(key: string, fallback: T): T {
+  try { const v = localStorage.getItem('smdl_' + key); return v !== null ? (JSON.parse(v) as T) : fallback; }
+  catch { return fallback; }
+}
+function lsSet(key: string, value: unknown): void {
+  try { localStorage.setItem('smdl_' + key, JSON.stringify(value)); } catch {}
+}
+
 // ── BackgroundFX component ───────────────────────────────────────────────────
 const EFFECT_LABELS: Record<EffectName, string> = {
   videobg:'Video',
@@ -684,16 +693,16 @@ const BackgroundFX: React.FC = () => {
   const fcRef            = useRef(0);
   const effectIdxRef     = useRef(0);
   const phaseStartRef    = useRef(-1);
-  const lockedRef        = useRef(false);
-  const darkRef          = useRef(false);
-  const holdMsRef        = useRef(EFFECT_HOLD_MS);
+  const lockedRef        = useRef(lsGet<boolean>('locked', false));
+  const darkRef          = useRef(lsGet<boolean>('dark', false));
+  const holdMsRef        = useRef(lsGet<number>('holdMs', EFFECT_HOLD_MS));
   const lastEffRef       = useRef<EffectName>(EFFECT_NAMES[0]);
   const [displayEff, setDisplayEff] = useState<EffectName>(EFFECT_NAMES[0]);
-  const [locked, setLocked] = useState(false);
-  const [dark, setDark] = useState(false);
+  const [locked, setLocked] = useState(() => lsGet<boolean>('locked', false));
+  const [dark, setDark] = useState(() => lsGet<boolean>('dark', false));
   const [showSettings, setShowSettings] = useState(false);
-  const [intervalPreset, setIntervalPreset] = useState<'1'|'5'|'10'|'custom'>('custom');
-  const [customMin, setCustomMin] = useState('0.167');
+  const [intervalPreset, setIntervalPreset] = useState<'1'|'5'|'10'|'custom'>(() => lsGet<'1'|'5'|'10'|'custom'>('intervalPreset', 'custom'));
+  const [customMin, setCustomMin] = useState(() => lsGet<string>('customMin', '0.167'));
 
   const handleNext = () => {
     effectIdxRef.current = (effectIdxRef.current + 1) % EFFECT_NAMES.length;
@@ -704,11 +713,14 @@ const BackgroundFX: React.FC = () => {
     lockedRef.current = nl;
     if (!nl) phaseStartRef.current = -1;
     setLocked(nl);
+    lsSet('locked', nl);
   };
   const handleDark = () => {
     const nd = !darkRef.current;
     darkRef.current = nd;
     setDark(nd);
+    lsSet('dark', nd);
+    window.dispatchEvent(new CustomEvent('smdl_darkchange'));
   };
 
   useEffect(() => {
@@ -802,6 +814,8 @@ const BackgroundFX: React.FC = () => {
     holdMsRef.current = ms;
     setIntervalPreset(preset);
     phaseStartRef.current = -1;
+    lsSet('holdMs', ms);
+    lsSet('intervalPreset', preset);
   };
 
   const presetBtn = (label: string, preset: '1'|'5'|'10'|'custom', ms: number) => (
@@ -866,7 +880,7 @@ const BackgroundFX: React.FC = () => {
                     const v = e.target.value;
                     setCustomMin(v);
                     const ms = Math.max(100, Math.round(parseFloat(v) * 60_000));
-                    if (!isNaN(ms)) { holdMsRef.current = ms; phaseStartRef.current = -1; }
+                    if (!isNaN(ms)) { holdMsRef.current = ms; phaseStartRef.current = -1; lsSet('holdMs', ms); lsSet('customMin', v); }
                   }}
                   style={{
                     width:60, background:'none',
@@ -886,6 +900,108 @@ const BackgroundFX: React.FC = () => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ── Clock component ─────────────────────────────────────────────────────────
+const CLOCK_DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const CLOCK_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const Clock: React.FC = () => {
+  const [now, setNow]   = useState(() => new Date());
+  const [pos, setPos]   = useState<{x:number;y:number}>(() => lsGet('clockPos', {x:12,y:12}));
+  const [size, setSize] = useState<number>(() => lsGet('clockSize', 14));
+  const [isDark, setIsDark] = useState<boolean>(() => lsGet('dark', false));
+  const posRef  = useRef(pos);
+  const sizeRef = useRef(size);
+  const dragRef = useRef<{sx:number;sy:number;ox:number;oy:number}|null>(null);
+  const resRef  = useRef<{sy:number;os:number}|null>(null);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setIsDark(lsGet('dark', false));
+    window.addEventListener('smdl_darkchange', sync);
+    return () => window.removeEventListener('smdl_darkchange', sync);
+  }, []);
+
+  const onPtrDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button === 0) {
+      dragRef.current = {sx:e.clientX, sy:e.clientY, ox:posRef.current.x, oy:posRef.current.y};
+      e.currentTarget.setPointerCapture(e.pointerId);
+      e.currentTarget.style.cursor = 'grabbing';
+    } else if (e.button === 2) {
+      e.preventDefault();
+      resRef.current = {sy:e.clientY, os:sizeRef.current};
+      e.currentTarget.setPointerCapture(e.pointerId);
+      e.currentTarget.style.cursor = 'ns-resize';
+    }
+  };
+  const onPtrMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragRef.current) {
+      const np = {
+        x: Math.max(0, Math.min(window.innerWidth  - 240, dragRef.current.ox + e.clientX - dragRef.current.sx)),
+        y: Math.max(0, Math.min(window.innerHeight -  80, dragRef.current.oy + e.clientY - dragRef.current.sy)),
+      };
+      posRef.current = np; setPos(np); lsSet('clockPos', np);
+    } else if (resRef.current) {
+      const ns = Math.max(10, Math.min(64, resRef.current.os + (e.clientY - resRef.current.sy) * 0.25));
+      sizeRef.current = ns; setSize(ns); lsSet('clockSize', ns);
+    }
+  };
+  const onPtrUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button === 0) { dragRef.current = null; e.currentTarget.style.cursor = 'grab'; }
+    if (e.button === 2) { resRef.current  = null; e.currentTarget.style.cursor = 'grab'; }
+  };
+
+  const hh  = String(now.getHours()).padStart(2,'0');
+  const mm  = String(now.getMinutes()).padStart(2,'0');
+  const ss  = String(now.getSeconds()).padStart(2,'0');
+  const sz  = size;
+  const bg  = isDark ? 'rgba(10,11,20,0.84)'            : 'rgba(255,255,255,0.74)';
+  const bdr = isDark ? '1px solid rgba(80,95,150,0.42)' : '1px solid rgba(200,190,178,0.42)';
+  const clr = isDark ? '#dde' : '#111827';
+  const dim = isDark ? '#4a5568' : '#9ca3af';
+
+  return (
+    <div
+      title="Left-drag: move  •  Right-drag: resize"
+      onPointerDown={onPtrDown}
+      onPointerMove={onPtrMove}
+      onPointerUp={onPtrUp}
+      onContextMenu={e => e.preventDefault()}
+      style={{
+        position:'fixed', left:pos.x, top:pos.y, zIndex:20,
+        background:bg, backdropFilter:'blur(16px) saturate(1.6)',
+        border:bdr, borderRadius:Math.round(sz*0.75),
+        padding:`${sz*0.55}px ${sz*1.1}px ${sz*0.65}px`,
+        cursor:'grab', userSelect:'none',
+        boxShadow: isDark
+          ? '0 4px 32px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.04)'
+          : '0 2px 18px rgba(0,0,0,0.13), inset 0 1px 0 rgba(255,255,255,0.80)',
+        fontFamily:"'SF Mono','Fira Mono','Consolas','Courier New',monospace",
+        minWidth:sz*9,
+      }}
+    >
+      <div style={{fontSize:sz*0.68, color:dim, letterSpacing:'0.10em', textTransform:'uppercase', marginBottom:sz*0.22}}>
+        {CLOCK_DAYS[now.getDay()]}
+        <span style={{opacity:0.45}}> · </span>
+        {String(now.getDate()).padStart(2,'0')} {CLOCK_MONTHS[now.getMonth()]} {now.getFullYear()}
+      </div>
+      <div style={{display:'flex', alignItems:'baseline', gap:sz*0.4}}>
+        <span style={{fontSize:sz*2.1, fontWeight:200, color:clr, letterSpacing:'0.025em', lineHeight:1}}>
+          {hh}<span style={{opacity:0.30, margin:`0 ${sz*0.05}px`}}>:</span>{mm}
+        </span>
+        <div style={{display:'flex', flexDirection:'column', gap:0, paddingBottom:sz*0.05}}>
+          <span style={{fontSize:sz*0.58, color:dim, letterSpacing:'0.14em', lineHeight:1.3}}>SEC</span>
+          <span style={{fontSize:sz*1.15, fontWeight:300, color:clr, lineHeight:1.05}}>{ss}</span>
+        </div>
+      </div>
+      <span style={{position:'absolute', right:sz*0.45, bottom:sz*0.28, fontSize:sz*0.6, color:dim, opacity:0.5, pointerEvents:'none', lineHeight:1}}>⤭</span>
+    </div>
+  );
+};
+
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
@@ -920,6 +1036,7 @@ export default function App() {
     <ErrorBoundary>
       <div style={{position:'relative',width:'100vw',height:'100vh',overflow:'hidden'}}>
         <BackgroundFX />
+        <Clock />
         <div style={{position:'relative',zIndex:1,width:'100%',height:'100%'}}>
           <SVG3D svg={mySvg} smoothness={0.6} color="#4f46e5" />
         </div>
