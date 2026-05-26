@@ -641,10 +641,14 @@ const BackgroundFX: React.FC = () => {
   const phaseStartRef    = useRef(-1);
   const lockedRef        = useRef(false);
   const darkRef          = useRef(false);
+  const holdMsRef        = useRef(EFFECT_HOLD_MS);
   const lastEffRef       = useRef<EffectName>(EFFECT_NAMES[0]);
   const [displayEff, setDisplayEff] = useState<EffectName>(EFFECT_NAMES[0]);
   const [locked, setLocked] = useState(false);
   const [dark, setDark] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [intervalPreset, setIntervalPreset] = useState<'1'|'5'|'10'|'custom'>('custom');
+  const [customMin, setCustomMin] = useState('0.167');
 
   const handleNext = () => {
     effectIdxRef.current = (effectIdxRef.current + 1) % EFFECT_NAMES.length;
@@ -695,8 +699,8 @@ const BackgroundFX: React.FC = () => {
       const mouse = mouseRef.current, fc = fcRef.current++, isDark = darkRef.current;
 
       if (lockedRef.current) {
-        phaseT = Math.min(phaseT, EFFECT_HOLD_MS);
-      } else if (phaseT >= EFFECT_CYCLE_MS) {
+        phaseT = Math.min(phaseT, holdMsRef.current);
+      } else if (phaseT >= holdMsRef.current + EFFECT_TRANS_MS) {
         effectIdxRef.current = (effectIdxRef.current + 1) % EFFECT_NAMES.length;
         phaseStartRef.current = ts;
         phaseT = 0;
@@ -711,8 +715,8 @@ const BackgroundFX: React.FC = () => {
       }
 
       let trans = 0;
-      if (phaseT > EFFECT_HOLD_MS) {
-        const raw = (phaseT - EFFECT_HOLD_MS) / EFFECT_TRANS_MS;
+      if (phaseT > holdMsRef.current) {
+        const raw = (phaseT - holdMsRef.current) / EFFECT_TRANS_MS;
         trans = Math.min(1, raw * raw * (3 - 2 * raw));
       }
 
@@ -744,34 +748,93 @@ const BackgroundFX: React.FC = () => {
     background: dark ? 'rgba(180,180,200,0.22)' : 'rgba(180,180,180,0.32)',
   };
 
+  const pillBg   = dark ? 'rgba(18,18,26,0.80)'    : 'rgba(255,255,255,0.65)';
+  const pillBdr  = dark ? '1px solid rgba(80,90,130,0.38)' : '1px solid rgba(200,185,165,0.28)';
+  const panelBg  = dark ? 'rgba(14,14,22,0.96)'    : 'rgba(255,255,255,0.96)';
+  const labelClr = dark ? '#99a' : '#888';
+
+  const applyInterval = (ms: number, preset: '1'|'5'|'10'|'custom') => {
+    holdMsRef.current = ms;
+    setIntervalPreset(preset);
+    phaseStartRef.current = -1;
+  };
+
+  const presetBtn = (label: string, preset: '1'|'5'|'10'|'custom', ms: number) => (
+    <button
+      key={preset}
+      onClick={() => applyInterval(ms, preset)}
+      style={{
+        background: intervalPreset === preset ? (dark?'rgba(100,120,200,0.35)':'rgba(80,80,200,0.12)') : 'none',
+        border: intervalPreset === preset ? (dark?'1px solid rgba(120,140,230,0.5)':'1px solid rgba(80,80,200,0.25)') : '1px solid transparent',
+        borderRadius:6, padding:'2px 7px', cursor:'pointer',
+        color: dark?'#ccd':'#445', fontSize:10, fontFamily:'system-ui,sans-serif',
+      }}
+    >{label}</button>
+  );
+
   return (
     <div style={{position:'absolute',inset:0}}>
       <video ref={videoRef} src={`${import.meta.env.BASE_URL}videobg.mp4`}
         muted loop playsInline
         style={{position:'absolute',width:0,height:0,opacity:0,pointerEvents:'none'}} />
       <canvas ref={canvasRef} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',zIndex:0}} />
-      <div style={{
-        position:'absolute', top:8, right:8, zIndex:10,
-        display:'flex', alignItems:'center',
-        background: dark ? 'rgba(18,18,26,0.80)' : 'rgba(255,255,255,0.65)',
-        backdropFilter:'blur(5px)',
-        border: dark ? '1px solid rgba(80,90,130,0.38)' : '1px solid rgba(200,185,165,0.28)',
-        borderRadius:12, padding:'1px 2px',
-        fontFamily:'system-ui,sans-serif',
-        boxShadow:'0 1px 4px rgba(0,0,0,0.10)',
-        userSelect:'none',
-      }}>
-        <button onClick={handleDark} title={dark ? 'Light mode' : 'Dark mode'}
-          style={{...iBtn, color: dark ? '#ffd060' : '#666', fontSize:11, paddingRight:4}}>
-          {dark ? '☀' : '🌙'}
-        </button>
-        <span style={sep}/>
-        <button onClick={handleNext} title="Next background" style={{...iBtn, color: dark ? '#aab' : '#aaa'}}>↻</button>
-        <span style={{padding:'0 3px', color: dark ? '#99a' : '#888', fontSize:10, letterSpacing:'0.01em'}}>{EFFECT_LABELS[displayEff]}</span>
-        <button onClick={handleLock} title={locked ? 'Resume cycling' : 'Pin background'}
-          style={{...iBtn, color: locked ? '#d05040' : (dark ? '#556' : '#ccc'), fontSize:9}}>
-          {locked ? '●' : '○'}
-        </button>
+
+      {/* top-right control area */}
+      <div style={{position:'absolute',top:8,right:8,zIndex:10,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4,fontFamily:'system-ui,sans-serif',userSelect:'none'}}>
+
+        {/* pill */}
+        <div style={{display:'flex',alignItems:'center',background:pillBg,backdropFilter:'blur(5px)',border:pillBdr,borderRadius:12,padding:'1px 2px',boxShadow:'0 1px 4px rgba(0,0,0,0.10)'}}>
+          <button onClick={handleDark} title={dark ? 'Light mode' : 'Dark mode'}
+            style={{...iBtn, color: dark ? '#ffd060' : '#666', fontSize:11, paddingRight:4}}>
+            {dark ? '☀' : '🌙'}
+          </button>
+          <span style={sep}/>
+          <button onClick={handleNext} title="Next background" style={{...iBtn, color: dark ? '#aab' : '#aaa'}}>↻</button>
+          <span style={{padding:'0 3px', color: labelClr, fontSize:10, letterSpacing:'0.01em'}}>{EFFECT_LABELS[displayEff]}</span>
+          <button onClick={handleLock} title={locked ? 'Resume cycling' : 'Pin background'}
+            style={{...iBtn, color: locked ? '#d05040' : (dark ? '#556' : '#ccc'), fontSize:9}}>
+            {locked ? '●' : '○'}
+          </button>
+          <span style={sep}/>
+          <button onClick={() => setShowSettings(s => !s)} title="Interval settings"
+            style={{...iBtn, color: showSettings ? (dark?'#aac':'#558') : (dark?'#556':'#bbb'), fontSize:10}}>
+            ⚙
+          </button>
+        </div>
+
+        {/* settings panel */}
+        {showSettings && (
+          <div style={{background:panelBg,backdropFilter:'blur(8px)',border:pillBdr,borderRadius:10,padding:'8px 10px',boxShadow:'0 2px 8px rgba(0,0,0,0.14)',minWidth:200}}>
+            <div style={{color:labelClr,fontSize:9,letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:6}}>Interval</div>
+            <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+              {presetBtn('1 min',  '1',  60_000)}
+              {presetBtn('5 min',  '5',  300_000)}
+              {presetBtn('10 min', '10', 600_000)}
+              {presetBtn('Custom', 'custom', holdMsRef.current)}
+            </div>
+            {intervalPreset === 'custom' && (
+              <div style={{display:'flex',alignItems:'center',gap:5,marginTop:7}}>
+                <input
+                  type="number" min="0.1" step="0.1"
+                  value={customMin}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setCustomMin(v);
+                    const ms = Math.max(100, Math.round(parseFloat(v) * 60_000));
+                    if (!isNaN(ms)) { holdMsRef.current = ms; phaseStartRef.current = -1; }
+                  }}
+                  style={{
+                    width:60, background:'none',
+                    border: dark?'1px solid rgba(120,140,230,0.35)':'1px solid rgba(100,100,180,0.25)',
+                    borderRadius:5, padding:'2px 5px', color:dark?'#ccd':'#334',
+                    fontSize:10, fontFamily:'system-ui,sans-serif', outline:'none',
+                  }}
+                />
+                <span style={{color:labelClr,fontSize:10}}>min</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
