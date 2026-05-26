@@ -902,6 +902,20 @@ const BackgroundFX: React.FC<{fixedIntervalMs?: number; hideControls?: boolean}>
           </div>
         )}
       </div>
+      {/* Save button — locks current settings into URL */}
+      <button
+        onClick={() => { urlSet('settings', false); window.location.reload(); }}
+        title="Save current settings and lock controls"
+        style={{
+          marginTop:4, alignSelf:'flex-end',
+          background: dark ? 'rgba(99,102,241,0.85)' : 'rgba(99,102,241,0.92)',
+          color:'#fff', border:'none', borderRadius:8,
+          padding:'4px 12px', fontSize:11, fontWeight:700,
+          cursor:'pointer', fontFamily:'system-ui,sans-serif',
+          letterSpacing:'0.07em',
+          boxShadow:'0 2px 8px rgba(99,102,241,0.35)',
+        }}
+      >SAVE</button>
     </div>
   );
 };
@@ -1021,10 +1035,10 @@ const Clock: React.FC = () => {
 
   return (
     <div
-      title="Ctrl+drag: move  •  Shift+drag: resize"
-      onPointerDown={onCardDown}
-      onPointerMove={onCardMove}
-      onPointerUp={onCardUp}
+      title={showSettings ? 'Ctrl+drag: move  •  Shift+drag: resize' : undefined}
+      onPointerDown={showSettings ? onCardDown : undefined}
+      onPointerMove={showSettings ? onCardMove : undefined}
+      onPointerUp={showSettings ? onCardUp : undefined}
       onContextMenu={e => e.preventDefault()}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -1096,6 +1110,7 @@ const Clock: React.FC = () => {
       </div>
 
       {/* Bottom row: 12/24h toggle + hover buttons */}
+      {showSettings && (
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:sz*0.7}}>
         <button
           onClick={toggle24h}
@@ -1149,6 +1164,7 @@ const Clock: React.FC = () => {
           >⤡</button>
         </div>
       </div>
+      )}
     </div>
   );
 };
@@ -1275,10 +1291,11 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBounda
 
 export default function App() {
   const isFixed = window.location.pathname.replace(/\/$/, '').endsWith('/fixed');
+  const showSettings = urlGet<boolean>('settings', true);
   return (
     <ErrorBoundary>
       <div style={{position:'relative',width:'100vw',height:'100vh',overflow:'hidden'}}>
-        <BackgroundFX fixedIntervalMs={isFixed ? 120_000 : undefined} hideControls={isFixed} />
+        <BackgroundFX fixedIntervalMs={isFixed ? 120_000 : undefined} hideControls={isFixed || !showSettings} />
         {isFixed ? <ClockFixed /> : <Clock />}
         <div style={{position:'relative',zIndex:1,width:'100%',height:'100%'}}>
           <SVG3D svg={mySvg} smoothness={0.6} color="#4f46e5" />
