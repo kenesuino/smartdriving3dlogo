@@ -662,6 +662,8 @@ const BackgroundFX: React.FC = () => {
   };
 
   useEffect(() => {
+    const video = videoRef.current;
+    if (video) { video.muted = true; video.play().catch(() => {}); }
     const canvas = canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     const offA = document.createElement('canvas');
@@ -744,8 +746,8 @@ const BackgroundFX: React.FC = () => {
   return (
     <div style={{position:'absolute',inset:0}}>
       <video ref={videoRef} src={`${import.meta.env.BASE_URL}videobg.mp4`}
-        autoPlay muted loop playsInline
-        style={{display:'none'}} />
+        muted loop playsInline
+        style={{position:'absolute',width:0,height:0,opacity:0,pointerEvents:'none'}} />
       <canvas ref={canvasRef} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',zIndex:0}} />
       <div style={{
         position:'absolute', top:8, right:8, zIndex:10,
