@@ -905,10 +905,11 @@ const CLOCK_DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const CLOCK_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const Clock: React.FC = () => {
-  const [now, setNow]   = useState(() => new Date());
-  const [pos, setPos]   = useState<{x:number;y:number}>(() => lsGet('clockPos', {x:12,y:12}));
-  const [size, setSize] = useState<number>(() => lsGet('clockSize', 14));
+  const [now, setNow]     = useState(() => new Date());
+  const [pos, setPos]     = useState<{x:number;y:number}>(() => lsGet('clockPos', {x:16,y:16}));
+  const [size, setSize]   = useState<number>(() => lsGet('clockSize', 14));
   const [isDark, setIsDark] = useState<boolean>(() => lsGet('dark', false));
+  const [is24h, setIs24h]   = useState<boolean>(() => lsGet('clock24h', true));
   const posRef  = useRef(pos);
   const sizeRef = useRef(size);
   const dragRef = useRef<{sx:number;sy:number;ox:number;oy:number}|null>(null);
@@ -925,79 +926,155 @@ const Clock: React.FC = () => {
     return () => window.removeEventListener('smdl_darkchange', sync);
   }, []);
 
-  const onPtrDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button === 0) {
-      dragRef.current = {sx:e.clientX, sy:e.clientY, ox:posRef.current.x, oy:posRef.current.y};
-      e.currentTarget.setPointerCapture(e.pointerId);
-      e.currentTarget.style.cursor = 'grabbing';
-    } else if (e.button === 2) {
-      e.preventDefault();
-      resRef.current = {sy:e.clientY, os:sizeRef.current};
-      e.currentTarget.setPointerCapture(e.pointerId);
-      e.currentTarget.style.cursor = 'ns-resize';
-    }
+  const onCardDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    dragRef.current = {sx:e.clientX, sy:e.clientY, ox:posRef.current.x, oy:posRef.current.y};
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.currentTarget.style.cursor = 'grabbing';
   };
-  const onPtrMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (dragRef.current) {
-      const np = {
-        x: Math.max(0, Math.min(window.innerWidth  - 240, dragRef.current.ox + e.clientX - dragRef.current.sx)),
-        y: Math.max(0, Math.min(window.innerHeight -  80, dragRef.current.oy + e.clientY - dragRef.current.sy)),
-      };
-      posRef.current = np; setPos(np); lsSet('clockPos', np);
-    } else if (resRef.current) {
-      const ns = Math.max(10, Math.min(64, resRef.current.os + (e.clientY - resRef.current.sy) * 0.25));
-      sizeRef.current = ns; setSize(ns); lsSet('clockSize', ns);
-    }
+  const onCardMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current) return;
+    const np = {
+      x: Math.max(0, Math.min(window.innerWidth  - 320, dragRef.current.ox + e.clientX - dragRef.current.sx)),
+      y: Math.max(0, Math.min(window.innerHeight - 140, dragRef.current.oy + e.clientY - dragRef.current.sy)),
+    };
+    posRef.current = np; setPos(np); lsSet('clockPos', np);
   };
-  const onPtrUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button === 0) { dragRef.current = null; e.currentTarget.style.cursor = 'grab'; }
-    if (e.button === 2) { resRef.current  = null; e.currentTarget.style.cursor = 'grab'; }
+  const onCardUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragRef.current = null; e.currentTarget.style.cursor = 'grab';
   };
 
-  const hh  = String(now.getHours()).padStart(2,'0');
-  const mm  = String(now.getMinutes()).padStart(2,'0');
-  const ss  = String(now.getSeconds()).padStart(2,'0');
-  const sz  = size;
-  const bg  = isDark ? 'rgba(10,11,20,0.84)'            : 'rgba(255,255,255,0.74)';
-  const bdr = isDark ? '1px solid rgba(80,95,150,0.42)' : '1px solid rgba(200,190,178,0.42)';
-  const clr = isDark ? '#dde' : '#111827';
-  const dim = isDark ? '#4a5568' : '#9ca3af';
+  const onResDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    resRef.current = {sy:e.clientY, os:sizeRef.current};
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onResMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!resRef.current) return;
+    const ns = Math.max(10, Math.min(72, resRef.current.os + (e.clientY - resRef.current.sy) * 0.3));
+    sizeRef.current = ns; setSize(ns); lsSet('clockSize', ns);
+  };
+  const onResUp = (_e: React.PointerEvent<HTMLButtonElement>) => { resRef.current = null; };
+
+  const toggle24h = () => { const nv = !is24h; setIs24h(nv); lsSet('clock24h', nv); };
+
+  const rawH     = now.getHours();
+  const displayH = is24h ? rawH : (rawH % 12 || 12);
+  const hh = String(displayH).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  const ss = String(now.getSeconds()).padStart(2,'0');
+  const ampm = rawH < 12 ? 'AM' : 'PM';
+  const sz = size;
+
+  const cardBg = isDark ? 'rgba(22,20,30,0.95)'  : 'rgba(252,249,244,0.97)';
+  const pillBg = isDark ? 'rgba(40,36,56,0.82)'  : 'rgba(255,255,255,0.88)';
+  const clr    = isDark ? '#eceaf4'               : '#0d0f14';
+  const dim    = isDark ? '#5a6070'               : '#9ca3af';
+  const dot    = '#f0a060';
+  const divClr = isDark ? 'rgba(255,255,255,0.09)': 'rgba(0,0,0,0.07)';
+  const btnBg  = isDark ? 'rgba(255,255,255,0.09)': 'rgba(255,255,255,0.95)';
 
   return (
     <div
-      title="Left-drag: move  •  Right-drag: resize"
-      onPointerDown={onPtrDown}
-      onPointerMove={onPtrMove}
-      onPointerUp={onPtrUp}
+      onPointerDown={onCardDown}
+      onPointerMove={onCardMove}
+      onPointerUp={onCardUp}
       onContextMenu={e => e.preventDefault()}
       style={{
         position:'fixed', left:pos.x, top:pos.y, zIndex:20,
-        background:bg, backdropFilter:'blur(16px) saturate(1.6)',
-        border:bdr, borderRadius:Math.round(sz*0.75),
-        padding:`${sz*0.55}px ${sz*1.1}px ${sz*0.65}px`,
+        background:cardBg, backdropFilter:'blur(28px) saturate(1.9)',
+        borderRadius:sz*1.7,
+        padding:`${sz*1.0}px ${sz*1.6}px ${sz*1.4}px`,
         cursor:'grab', userSelect:'none',
         boxShadow: isDark
-          ? '0 4px 32px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.04)'
-          : '0 2px 18px rgba(0,0,0,0.13), inset 0 1px 0 rgba(255,255,255,0.80)',
-        fontFamily:"'SF Mono','Fira Mono','Consolas','Courier New',monospace",
-        minWidth:sz*9,
+          ? '0 8px 48px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.05)'
+          : '0 4px 40px rgba(0,0,0,0.09), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1)',
+        fontFamily:"system-ui,-apple-system,'Segoe UI',sans-serif",
+        minWidth:sz*20,
       }}
     >
-      <div style={{fontSize:sz*0.68, color:dim, letterSpacing:'0.10em', textTransform:'uppercase', marginBottom:sz*0.22}}>
+      {/* Date pill */}
+      <div style={{
+        display:'inline-flex', alignItems:'center', gap:sz*0.5,
+        background:pillBg, borderRadius:sz*1.3,
+        padding:`${sz*0.3}px ${sz*0.9}px`,
+        marginBottom:sz*0.9,
+        boxShadow: isDark ? '0 1px 6px rgba(0,0,0,0.4)' : '0 1px 6px rgba(0,0,0,0.06)',
+        fontSize:sz*0.75, fontWeight:600, letterSpacing:'0.08em',
+        textTransform:'uppercase' as const, color:dim,
+      }}>
+        <svg width={sz*0.9} height={sz*0.9} viewBox="0 0 16 16" fill="none"
+          stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="1.5" y="3" width="13" height="11.5" rx="2"/>
+          <path d="M5 1.5v3M11 1.5v3M1.5 7h13"/>
+        </svg>
         {CLOCK_DAYS[now.getDay()]}
-        <span style={{opacity:0.45}}> · </span>
-        {String(now.getDate()).padStart(2,'0')} {CLOCK_MONTHS[now.getMonth()]} {now.getFullYear()}
+        <span style={{opacity:0.3}}>&nbsp;·&nbsp;</span>
+        {String(now.getDate()).padStart(2,'0')}
+        <span style={{opacity:0.3}}>&nbsp;·&nbsp;</span>
+        {CLOCK_MONTHS[now.getMonth()]}
+        <span style={{opacity:0.3}}>&nbsp;·&nbsp;</span>
+        {now.getFullYear()}
       </div>
-      <div style={{display:'flex', alignItems:'baseline', gap:sz*0.4}}>
-        <span style={{fontSize:sz*2.1, fontWeight:200, color:clr, letterSpacing:'0.025em', lineHeight:1}}>
-          {hh}<span style={{opacity:0.30, margin:`0 ${sz*0.05}px`}}>:</span>{mm}
-        </span>
-        <div style={{display:'flex', flexDirection:'column', gap:0, paddingBottom:sz*0.05}}>
-          <span style={{fontSize:sz*0.58, color:dim, letterSpacing:'0.14em', lineHeight:1.3}}>SEC</span>
-          <span style={{fontSize:sz*1.15, fontWeight:300, color:clr, lineHeight:1.05}}>{ss}</span>
+
+      {/* Time row */}
+      <div style={{display:'flex', alignItems:'center', gap:sz*0.7}}>
+        {/* HH · colon dots · MM */}
+        <div style={{display:'flex', alignItems:'center', gap:sz*0.55}}>
+          <span style={{fontSize:sz*4.2, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.03em'}}>{hh}</span>
+          <div style={{display:'flex', flexDirection:'column', gap:sz*0.44, paddingBottom:sz*0.15}}>
+            <span style={{width:sz*0.54, height:sz*0.54, borderRadius:'50%', background:dot, display:'block'}}/>
+            <span style={{width:sz*0.54, height:sz*0.54, borderRadius:'50%', background:dot, display:'block'}}/>
+          </div>
+          <span style={{fontSize:sz*4.2, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.03em'}}>{mm}</span>
+        </div>
+
+        {/* Divider */}
+        <div style={{width:1, alignSelf:'stretch', background:divClr, margin:`${sz*0.4}px 0`, flexShrink:0}}/>
+
+        {/* SEC + AM/PM */}
+        <div style={{display:'flex', flexDirection:'column', alignItems:'flex-start', justifyContent:'center', gap:sz*0.18}}>
+          <span style={{fontSize:sz*0.68, fontWeight:700, color:dim, letterSpacing:'0.13em', lineHeight:1}}>SEC</span>
+          <span style={{fontSize:sz*2.5, fontWeight:700, color:clr, lineHeight:1, letterSpacing:'-0.02em'}}>{ss}</span>
+          {!is24h && (
+            <span style={{fontSize:sz*0.68, fontWeight:700, color:dot, letterSpacing:'0.09em', lineHeight:1}}>{ampm}</span>
+          )}
         </div>
       </div>
-      <span style={{position:'absolute', right:sz*0.45, bottom:sz*0.28, fontSize:sz*0.6, color:dim, opacity:0.5, pointerEvents:'none', lineHeight:1}}>⤭</span>
+
+      {/* Bottom row: 12/24h toggle + resize handle */}
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:sz*0.7}}>
+        <button
+          onClick={toggle24h}
+          onPointerDown={e => e.stopPropagation()}
+          title={is24h ? 'Switch to 12-hour' : 'Switch to 24-hour'}
+          style={{
+            background: isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.06)',
+            border:'none', borderRadius:sz*0.6,
+            padding:`${sz*0.22}px ${sz*0.6}px`,
+            cursor:'pointer', color:dim,
+            fontSize:sz*0.7, fontWeight:700, letterSpacing:'0.05em', fontFamily:'inherit',
+          }}
+        >{is24h ? '24 h' : '12 h'}</button>
+
+        <button
+          onPointerDown={onResDown}
+          onPointerMove={onResMove}
+          onPointerUp={onResUp}
+          onContextMenu={e => e.preventDefault()}
+          title="Drag up / down to resize"
+          style={{
+            width:sz*1.9, height:sz*1.9, flexShrink:0,
+            background:btnBg, border:'none', borderRadius:'50%',
+            boxShadow: isDark
+              ? '0 2px 10px rgba(0,0,0,0.55)'
+              : '0 2px 10px rgba(0,0,0,0.11), inset 0 1px 0 rgba(255,255,255,1)',
+            cursor:'ns-resize',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:sz*0.82, color:dim, padding:0,
+          }}
+        >⤡</button>
+      </div>
     </div>
   );
 };
