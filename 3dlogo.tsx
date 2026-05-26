@@ -227,7 +227,7 @@ interface DropParticle   { x: number; y: number; age: number; maxAge: number; hu
 interface StarNode       { x: number; y: number; vx: number; vy: number; hue: number; }
 interface SwarmParticle  { x: number; y: number; vx: number; vy: number; hue: number; }
 
-const EFFECT_NAMES = ['blueprint','plasma','bubbles','drops','dotted','aurora','constellation','hexgrid','waves','swarm'] as const;
+const EFFECT_NAMES = ['videobg','blueprint','plasma','bubbles','drops','dotted','aurora','constellation','hexgrid','waves','swarm'] as const;
 type EffectName = typeof EFFECT_NAMES[number];
 const EFFECT_HOLD_MS  = 10_000;
 const EFFECT_TRANS_MS =  3_000;
@@ -588,9 +588,24 @@ function drawSwarm(ctx: CanvasRenderingContext2D, t: number, mouse: Mouse, W: nu
   }
 }
 
+// ── Video BG ────────────────────────────────────────────────────────────────
+function drawVideoBg(ctx: CanvasRenderingContext2D, W: number, H: number, video: HTMLVideoElement | null | undefined, dark: boolean) {
+  ctx.fillStyle = dark ? '#050505' : '#111';
+  ctx.fillRect(0, 0, W, H);
+  if (!video || video.readyState < 2) return;
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) return;
+  const scale = Math.max(W / vw, H / vh);
+  const sw = vw * scale, sh = vh * scale;
+  const sx = (W - sw) / 2, sy = (H - sh) / 2;
+  ctx.drawImage(video, sx, sy, sw, sh);
+  if (dark) { ctx.fillStyle = 'rgba(0,0,0,0.20)'; ctx.fillRect(0,0,W,H); }
+}
+
 // ── Dispatcher ───────────────────────────────────────────────────────────────
-function drawEffect(ctx: CanvasRenderingContext2D, name: EffectName, t: number, mouse: Mouse, W: number, H: number, bubbles: BubbleParticle[], drops: DropParticle[], fc: number, constellation: StarNode[], swarm: SwarmParticle[], dark: boolean) {
+function drawEffect(ctx: CanvasRenderingContext2D, name: EffectName, t: number, mouse: Mouse, W: number, H: number, bubbles: BubbleParticle[], drops: DropParticle[], fc: number, constellation: StarNode[], swarm: SwarmParticle[], dark: boolean, video?: HTMLVideoElement | null) {
   switch (name) {
+    case 'videobg':      drawVideoBg(ctx,W,H,video,dark); break;
     case 'blueprint':    drawBlueprint(ctx,t,mouse,W,H,dark); break;
     case 'plasma':       drawPlasma(ctx,t,mouse,W,H,dark); break;
     case 'bubbles':      drawBubbles(ctx,t,mouse,W,H,bubbles,dark); break;
@@ -606,12 +621,14 @@ function drawEffect(ctx: CanvasRenderingContext2D, name: EffectName, t: number, 
 
 // ── BackgroundFX component ───────────────────────────────────────────────────
 const EFFECT_LABELS: Record<EffectName, string> = {
+  videobg:'Video',
   blueprint:'Blueprint', plasma:'Plasma', bubbles:'Bubbles', drops:'Drops', dotted:'Dotted',
   aurora:'Aurora', constellation:'Stars', hexgrid:'Hex', waves:'Waves', swarm:'Swarm',
 };
 
 const BackgroundFX: React.FC = () => {
   const canvasRef        = useRef<HTMLCanvasElement>(null);
+  const videoRef         = useRef<HTMLVideoElement>(null);
   const mouseRef         = useRef<Mouse>({x:-9999,y:-9999});
   const bubblesRef       = useRef<BubbleParticle[]>([]);
   const dropsRef         = useRef<DropParticle[]>([]);
@@ -696,8 +713,9 @@ const BackgroundFX: React.FC = () => {
         trans = Math.min(1, raw * raw * (3 - 2 * raw));
       }
 
-      drawEffect(ctxA, curEff,  ts, mouse, W, H, bubblesRef.current, dropsRef.current, fc, constellationRef.current, swarmRef.current, isDark);
-      if (trans > 0) drawEffect(ctxB, nextEff, ts, mouse, W, H, bubblesRef.current, dropsRef.current, fc, constellationRef.current, swarmRef.current, isDark);
+      const vid = videoRef.current;
+      drawEffect(ctxA, curEff,  ts, mouse, W, H, bubblesRef.current, dropsRef.current, fc, constellationRef.current, swarmRef.current, isDark, vid);
+      if (trans > 0) drawEffect(ctxB, nextEff, ts, mouse, W, H, bubblesRef.current, dropsRef.current, fc, constellationRef.current, swarmRef.current, isDark, vid);
       ctx.clearRect(0,0,W,H);
       ctx.globalAlpha = 1-trans; ctx.drawImage(offA,0,0);
       if (trans > 0) { ctx.globalAlpha = trans; ctx.drawImage(offB,0,0); }
@@ -725,6 +743,9 @@ const BackgroundFX: React.FC = () => {
 
   return (
     <div style={{position:'absolute',inset:0}}>
+      <video ref={videoRef} src={`${import.meta.env.BASE_URL}videobg.mp4`}
+        autoPlay muted loop playsInline
+        style={{display:'none'}} />
       <canvas ref={canvasRef} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',zIndex:0}} />
       <div style={{
         position:'absolute', top:8, right:8, zIndex:10,
